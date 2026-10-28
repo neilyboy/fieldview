@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Setting {
+  id            Int     @id @default(1)
+  companyName   String  @default("")
+  logoPath      String?
+  primaryColor  String  @default("#22d3ee")
+  accentColor   String  @default("#f59e0b")
+  pdfFooterText String  @default("")
+  contactInfo   String  @default("")
+  adminPassHash String?
+}
+
+model Site {
+  id          String      @id @default(cuid())
+  name        String
+  clientName  String?
+  address     String?
+  notes       String?
+  centerLat   Float?
+  centerLng   Float?
+  defaultZoom Float       @default(18)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  cameras     Camera[]
+  infra       InfraItem[]
+  shares      ShareLink[]
+}
+
+model CameraModel {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  family           String // dome|bullet|mini|fisheye|multisensor|ptz
+  lensCount        Int      @default(1)
+  hfovDeg          Float    @default(100)
+  effectiveRangeM  Float    @default(20)
+  megapixels       Float?
+  irRangeM         Float?
+  isBuiltin        Boolean  @default(true)
+  notes            String?
+  cameras          Camera[]
+}
+
+model Camera {
+  id           String       @id @default(cuid())
+  siteId       String
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  modelId      String?
+  model        CameraModel? @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  name         String
+  lat          Float
+  lng          Float
+  bearingDeg   Float        @default(0)
+  fovDeg       Float? // overrides model hfov when set
+  rangeM       Float? // overrides model effectiveRangeM when set
+  headBearings String? // JSON array of bearings for multisensor heads
+  mountHeightM Float?
+  mountType    String? // wall|pole|parapet|pendant|corner|soffit
+  surface      String?
+  notes        String?
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  photos       Photo[]
+}
+
+model Photo {
+  id          String     @id @default(cuid())
+  cameraId    String?
+  camera      Camera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  infraId     String?
+  infra       InfraItem? @relation(fields: [infraId], references: [id], onDelete: Cascade)
+  type        String     @default("other") // mount|fov|cablePath|other
+  caption     String?
+  filePath    String
+  thumbPath   String?
+  width       Int?
+  height      Int?
+  annotations String? // serialized fabric.js canvas JSON
+  createdAt   DateTime   @default(now())
+}
+
+model InfraItem {
+  id          String   @id @default(cuid())
+  siteId      String
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  type        String // idf|switch|cablePath|note
+  lat         Float?
+  lng         Float?
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  photos      Photo[]
+}
+
+model ShareLink {
+  id        String    @id @default(cuid())
+  siteId    String
+  site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  label     String?
+  expiresAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+}
