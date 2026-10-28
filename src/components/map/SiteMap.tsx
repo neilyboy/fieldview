@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { conesForCamera, destination } from "@/lib/geo";
+import MapError from "./MapError";
 
 export type Cam = {
   id: string; name: string; lat: number; lng: number; bearingDeg: number;
@@ -41,6 +42,7 @@ export default function SiteMap(props: {
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
+  const [glError, setGlError] = useState<string | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const infraMarkersRef = useRef<Map<string, Marker>>(new Map());
   const rotateRef = useRef<Marker | null>(null);
@@ -62,7 +64,9 @@ export default function SiteMap(props: {
   // Init map once
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
-    const map = new maplibregl.Map({
+    let map: MLMap;
+    try {
+      map = new maplibregl.Map({
       container: ref.current,
       style: {
         version: 8,
@@ -86,7 +90,11 @@ export default function SiteMap(props: {
       zoom: propsRef.current.zoom,
       maxZoom: 22,
       attributionControl: { compact: true },
-    });
+      });
+    } catch (e) {
+      setGlError(e instanceof Error ? e.message : String(e));
+      return;
+    }
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     map.on("load", () => {
       syncCones();
@@ -252,6 +260,7 @@ export default function SiteMap(props: {
   return (
     <div className="relative w-full h-full">
       <div ref={ref} className="absolute inset-0" />
+      {glError && <MapError error={glError} />}
       <button
         onClick={toggleBasemap}
         className="absolute top-3 left-3 z-10 glass rounded-lg px-3 py-1.5 text-xs font-mono text-slate-300 hover:text-brand transition"

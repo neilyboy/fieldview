@@ -36,7 +36,9 @@ function PrintMap(props: { cameras: Cam[]; focus?: Cam; height: string; onReady:
   useEffect(() => {
     if (!ref.current) return;
     const cams = props.cameras;
-    const map = new maplibregl.Map({
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
       container: ref.current,
       style: {
         version: 8,
@@ -54,8 +56,13 @@ function PrintMap(props: { cameras: Cam[]; focus?: Cam; height: string; onReady:
       },
       interactive: false,
       attributionControl: false,
-      preserveDrawingBuffer: true,
-    });
+        preserveDrawingBuffer: true,
+      });
+    } catch {
+      done.current = true;
+      props.onReady();
+      return;
+    }
     const finish = () => {
       if (done.current) return;
       done.current = true;
