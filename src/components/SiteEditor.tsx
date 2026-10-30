@@ -30,7 +30,7 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
   }
   useEffect(() => {
     // start with the panel tucked away on phones — the ☰ button opens it
-    if (window.matchMedia("(max-width: 639px)").matches) setPanel("closed");
+    if (window.matchMedia("(max-width: 639px)").matches && !window.matchMedia("(pointer: fine)").matches) setPanel("closed");
     const off = onQueueCount(setPending);
     const t = setInterval(async () => { if (await flushQueue()) refresh(); }, 15000);
     return () => { off(); clearInterval(t); };
@@ -131,7 +131,7 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
             ⌂ INFRA
           </button>
           <button onClick={() => setPanel(panel === "closed" ? "list" : "closed")}
-            className="glass rounded-full px-3 py-2 text-[11px] font-bold text-slate-300 sm:hidden whitespace-nowrap">☰</button>
+            className="glass rounded-full px-3 py-2 text-[11px] font-bold text-slate-300 whitespace-nowrap">☰</button>
         </div>
 
         {/* side / bottom panel */}
