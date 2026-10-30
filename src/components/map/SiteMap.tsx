@@ -32,7 +32,7 @@ export default function SiteMap(props: {
   center: [number, number]; zoom: number;
   cameras: Cam[]; infra: Infra[];
   mode: "edit" | "view";
-  addMode?: "camera" | "infra" | null;
+  addMode?: "camera" | "infra" | "move" | null;
   selectedId?: string | null;
   zoomThumbs?: boolean;
   onSelect?: (kind: "camera" | "infra", id: string) => void;
@@ -106,9 +106,22 @@ export default function SiteMap(props: {
     });
     map.on("click", (e) => {
       const p = propsRef.current;
-      if (p.addMode && p.onMapClick) p.onMapClick(e.lngLat.lat, e.lngLat.lng);
+      if (p.addMode) { p.onMapClick?.(e.lngLat.lat, e.lngLat.lng); return; }
+      let best: { kind: "camera" | "infra"; id: string; d: number } | null = null;
+      for (const c of p.cameras) {
+        const px = map.project([c.lng, c.lat]);
+        const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
+        if (d < 30 && (!best || d < best.d)) best = { kind: "camera", id: c.id, d };
+      }
+      for (const it of p.infra) {
+        if (it.lat == null || it.lng == null) continue;
+        const px = map.project([it.lng, it.lat]);
+        const d = Math.hypot(px.x - e.point.x, px.y - e.point.y);
+        if (d < 30 && (!best || d < best.d)) best = { kind: "infra", id: it.id, d };
+      }
+      if (best) p.onSelect?.(best.kind, best.id);
     });
-    map.on("zoom", refreshThumbs);
+    map.on("zoomend", refreshThumbs);
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,10 +141,7 @@ export default function SiteMap(props: {
       img.src = `/api/uploads/${fov.thumbPath ?? fov.filePath}`;
       el.appendChild(img);
     }
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      propsRef.current.onSelect?.("camera", cam.id);
-    });
+    el.style.pointerEvents = "none"; // taps are hit-tested via map click so markers never block pan/zoom
     return el;
   }
 
@@ -143,16 +153,11 @@ export default function SiteMap(props: {
       seen.add(cam.id);
       let m = markersRef.current.get(cam.id);
       if (!m) {
-        m = new Marker({ element: makeMarkerEl(cam, i), draggable: propsRef.current.mode === "edit" })
+        m = new Marker({ element: makeMarkerEl(cam, i) })
           .setLngLat([cam.lng, cam.lat]).addTo(map);
-        m.on("dragend", () => {
-          const ll = m!.getLngLat();
-          propsRef.current.onCameraMove?.(cam.id, ll.lat, ll.lng);
-        });
         markersRef.current.set(cam.id, m);
       } else {
         m.setLngLat([cam.lng, cam.lat]);
-        m.setDraggable(propsRef.current.mode === "edit");
         const el = m.getElement();
         const fresh = makeMarkerEl(cam, i);
         el.className = fresh.className;
@@ -177,10 +182,7 @@ export default function SiteMap(props: {
         const el = document.createElement("div");
         el.className = "infra-marker";
         el.textContent = icons[it.type] ?? "•";
-        el.addEventListener("click", (e) => {
-          e.stopPropagation();
-          propsRef.current.onSelect?.("infra", it.id);
-        });
+        el.style.pointerEvents = "none";
         m = new Marker({ element: el }).setLngLat([it.lng, it.lat]).addTo(map);
         infraMarkersRef.current.set(it.id, m);
       } else m.setLngLat([it.lng, it.lat]);
@@ -195,7 +197,8 @@ export default function SiteMap(props: {
     if (!map) return;
     const sel = propsRef.current.cameras.find((c) => c.id === propsRef.current.selectedId);
     const family = sel?.model?.family;
-    if (!sel || propsRef.current.mode !== "edit" || family === "fisheye" || family === "ptz") {
+    if (!sel || propsRef.current.mode !== "edit" || family === "fisheye" || family === "ptz" ||
+        (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches)) {
       rotateRef.current?.remove(); rotateRef.current = null;
       return;
     }
@@ -278,7 +281,7 @@ export default function SiteMap(props: {
       )}
       {props.addMode && (
         <div className="absolute top-14 left-3 z-10 glass rounded-lg px-3 py-1.5 text-xs text-accent font-mono">
-          TAP MAP TO PLACE {props.addMode === "camera" ? "CAMERA" : "INFRA"}
+          {props.addMode === "move" ? "TAP MAP TO MOVE CAMERA" : `TAP MAP TO PLACE ${props.addMode === "camera" ? "CAMERA" : "INFRA"}`}
         </div>
       )}
     </div>

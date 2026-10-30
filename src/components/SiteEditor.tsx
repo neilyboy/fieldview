@@ -18,7 +18,7 @@ type Site = {
 export default function SiteEditor({ initialSite, models }: { initialSite: Site; models: Model[] }) {
   const [site, setSite] = useState(initialSite);
   const [selected, setSelected] = useState<{ kind: "camera" | "infra"; id: string } | null>(null);
-  const [addMode, setAddMode] = useState<"camera" | "infra" | null>(null);
+  const [addMode, setAddMode] = useState<"camera" | "infra" | "move" | null>(null);
   const [pending, setPending] = useState(0);
   const [panel, setPanel] = useState<"detail" | "list" | "share" | "closed">("list");
   const myLoc = useRef<() => { lat: number; lng: number } | null>(() => null);
@@ -97,9 +97,13 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
           addMode={addMode}
           selectedId={selected?.id}
           onSelect={(kind, id) => { setSelected({ kind, id }); setPanel("detail"); setAddMode(null); }}
-          onMapClick={(lat, lng) => {
+          onMapClick={async (lat, lng) => {
             if (addMode === "camera") createCamera(lat, lng);
             else if (addMode === "infra") createInfra(lat, lng);
+            else if (addMode === "move" && selected?.kind === "camera") {
+              localPatch(selected.id, { lat, lng });
+              await api(`/api/cameras/${selected.id}`, { method: "PATCH", json: { lat, lng } });
+            }
             setAddMode(null);
           }}
           onCameraMove={async (id, lat, lng) => {
@@ -144,6 +148,7 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
               <SharePanel siteId={site.id} shares={site.shares} onChanged={refresh} />
             ) : selCam ? (
               <CameraPanel cam={selCam} models={models} onChanged={refresh} onLocalPatch={localPatch}
+                onRequestMove={() => setAddMode("move")}
                 onClose={() => { setSelected(null); setPanel("list"); }}
                 onDelete={async () => {
                   if (!confirm(`Delete ${selCam.name}?`)) return;

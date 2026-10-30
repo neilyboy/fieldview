@@ -29,6 +29,7 @@ export default function CameraPanel(props: {
   onLocalPatch: (id: string, patch: Partial<CamFull>) => void;
   onDelete: () => void;
   onClose: () => void;
+  onRequestMove: () => void;
 }) {
   const { cam } = props;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -122,7 +123,10 @@ export default function CameraPanel(props: {
             onMouseUp={(e) => patch({ bearingDeg: +(e.target as HTMLInputElement).value })}
             onTouchEnd={(e) => patch({ bearingDeg: +(e.target as HTMLInputElement).value })}
             className="w-full accent-cyan-400" />
-          <button onClick={useCompass} className="text-[11px] font-mono text-accent border border-accent/40 rounded px-2 py-1">USE PHONE COMPASS</button>
+          <div className="flex gap-2">
+            <button onClick={useCompass} className="text-[11px] font-mono text-accent border border-accent/40 rounded px-2 py-1">USE COMPASS</button>
+            <button onClick={props.onRequestMove} className="text-[11px] font-mono text-brand border border-brand/40 rounded px-2 py-1">MOVE ON MAP</button>
+          </div>
         </div>
       )}
 

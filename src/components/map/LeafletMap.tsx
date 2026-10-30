@@ -15,7 +15,7 @@ export default function LeafletMap(props: {
   center: [number, number]; zoom: number;
   cameras: Cam[]; infra: Infra[];
   mode: "edit" | "view";
-  addMode?: "camera" | "infra" | null;
+  addMode?: "camera" | "infra" | "move" | null;
   selectedId?: string | null;
   zoomThumbs?: boolean;
   onSelect?: (kind: "camera" | "infra", id: string) => void;
@@ -57,7 +57,7 @@ export default function LeafletMap(props: {
     const fov = cam.photos?.find((p) => p.type === "fov");
     const zoom = mapRef.current?.getZoom() ?? 0;
     const showThumb = fov && zoom >= (propsRef.current.zoomThumbs === false ? 99 : 16.5);
-    const html = `<div class="cam-marker${sel ? " selected" : ""}" style="border-color:${color};color:${color}"><span>${index + 1}</span>${
+    const html = `<div style="pointer-events:none" class="cam-marker${sel ? " selected" : ""}" style="border-color:${color};color:${color}"><span>${index + 1}</span>${
       showThumb ? `<img class="thumb" src="/api/uploads/${fov!.thumbPath ?? fov!.filePath}"/>` : ""
     }</div>`;
     return L.divIcon({ html, className: "", iconSize: [30, 30], iconAnchor: [15, 15] });
@@ -72,13 +72,10 @@ export default function LeafletMap(props: {
       let m = markersRef.current.get(cam.id);
       const icon = markerIcon(cam, i);
       if (!m) {
-        m = L.marker([cam.lat, cam.lng], { icon, draggable: propsRef.current.mode === "edit" }).addTo(map);
-        m.on("click", (e) => { L.DomEvent.stopPropagation(e.originalEvent); propsRef.current.onSelect?.("camera", cam.id); });
-        m.on("dragend", () => { const ll = m!.getLatLng(); propsRef.current.onCameraMove?.(cam.id, ll.lat, ll.lng); });
+        m = L.marker([cam.lat, cam.lng], { icon, interactive: false }).addTo(map);
         markersRef.current.set(cam.id, m);
       } else {
         m.setLatLng([cam.lat, cam.lng]).setIcon(icon);
-        if (m.dragging) propsRef.current.mode === "edit" ? m.dragging.enable() : m.dragging.disable();
       }
     });
     for (const [id, m] of markersRef.current) if (!seen.has(id)) { m.remove(); markersRef.current.delete(id); }
@@ -95,8 +92,7 @@ export default function LeafletMap(props: {
       let m = infraRef.current.get(it.id);
       const icon = L.divIcon({ html: `<div class="infra-marker">${icons[it.type] ?? "•"}</div>`, className: "", iconSize: [26, 26], iconAnchor: [13, 13] });
       if (!m) {
-        m = L.marker([it.lat, it.lng], { icon }).addTo(map);
-        m.on("click", (e) => { L.DomEvent.stopPropagation(e.originalEvent); propsRef.current.onSelect?.("infra", it.id); });
+        m = L.marker([it.lat, it.lng], { icon, interactive: false }).addTo(map);
         infraRef.current.set(it.id, m);
       } else m.setLatLng([it.lat, it.lng]).setIcon(icon);
     }
@@ -108,7 +104,8 @@ export default function LeafletMap(props: {
     if (!map) return;
     const sel = propsRef.current.cameras.find((c) => c.id === propsRef.current.selectedId);
     const family = sel?.model?.family;
-    if (!sel || propsRef.current.mode !== "edit" || family === "fisheye" || family === "ptz") {
+    if (!sel || propsRef.current.mode !== "edit" || family === "fisheye" || family === "ptz" ||
+        (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches)) {
       rotateRef.current?.remove(); rotateRef.current = null;
       return;
     }
@@ -140,7 +137,20 @@ export default function LeafletMap(props: {
     conesRef.current = L.layerGroup().addTo(map);
     map.on("click", (e) => {
       const p = propsRef.current;
-      if (p.addMode && p.onMapClick) p.onMapClick(e.latlng.lat, e.latlng.lng);
+      if (p.addMode) { p.onMapClick?.(e.latlng.lat, e.latlng.lng); return; }
+      let best: { kind: "camera" | "infra"; id: string; d: number } | null = null;
+      for (const c of p.cameras) {
+        const px = map.latLngToContainerPoint([c.lat, c.lng]);
+        const d = Math.hypot(px.x - e.containerPoint.x, px.y - e.containerPoint.y);
+        if (d < 30 && (!best || d < best.d)) best = { kind: "camera", id: c.id, d };
+      }
+      for (const it of p.infra) {
+        if (it.lat == null || it.lng == null) continue;
+        const px = map.latLngToContainerPoint([it.lat, it.lng]);
+        const d = Math.hypot(px.x - e.containerPoint.x, px.y - e.containerPoint.y);
+        if (d < 30 && (!best || d < best.d)) best = { kind: "infra", id: it.id, d };
+      }
+      if (best) p.onSelect?.(best.kind, best.id);
     });
     map.on("zoomend", refreshMarkers);
     mapRef.current = map;
@@ -190,7 +200,7 @@ export default function LeafletMap(props: {
       </button>
       {props.addMode && (
         <div className="absolute top-14 left-3 z-[600] glass rounded-lg px-3 py-1.5 text-xs text-accent font-mono">
-          TAP MAP TO PLACE {props.addMode === "camera" ? "CAMERA" : "INFRA"}
+          {props.addMode === "move" ? "TAP MAP TO MOVE CAMERA" : `TAP MAP TO PLACE ${props.addMode === "camera" ? "CAMERA" : "INFRA"}`}
         </div>
       )}
     </div>
