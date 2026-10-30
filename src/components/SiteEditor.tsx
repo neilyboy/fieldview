@@ -20,7 +20,7 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
   const [selected, setSelected] = useState<{ kind: "camera" | "infra"; id: string } | null>(null);
   const [addMode, setAddMode] = useState<"camera" | "infra" | null>(null);
   const [pending, setPending] = useState(0);
-  const [panel, setPanel] = useState<"detail" | "list" | "share" | "site">("list");
+  const [panel, setPanel] = useState<"detail" | "list" | "share" | "closed">("list");
   const myLoc = useRef<() => { lat: number; lng: number } | null>(() => null);
   const bearingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -29,6 +29,8 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
     if (res?.ok) setSite(await res.json());
   }
   useEffect(() => {
+    // start with the panel tucked away on phones — the ☰ button opens it
+    if (window.matchMedia("(max-width: 639px)").matches) setPanel("closed");
     const off = onQueueCount(setPending);
     const t = setInterval(async () => { if (await flushQueue()) refresh(); }, 15000);
     return () => { off(); clearInterval(t); };
@@ -66,7 +68,7 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
   const selInfra = selected?.kind === "infra" ? site.infra.find((i) => i.id === selected.id) : null;
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-[100dvh] flex flex-col">
       {/* top bar */}
       <header className="glass border-b border-edge px-3 py-2 flex items-center gap-2 z-20">
         <Link href="/" className="text-slate-400 hover:text-brand text-sm px-1">←</Link>
@@ -114,29 +116,29 @@ export default function SiteEditor({ initialSite, models }: { initialSite: Site;
         />
 
         {/* action bar */}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+        <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-10 flex gap-1.5 px-2 max-w-full">
           <button
             onClick={() => { const p = myLoc.current(); if (p) createCamera(p.lat, p.lng); else alert("GPS not available yet — allow location access"); }}
-            className="glass rounded-full px-4 py-2.5 text-xs font-bold text-brand border-brand/40 hover:bg-brand/10 transition whitespace-nowrap">
-            ◉ CAMERA AT ME
+            className="glass rounded-full px-3 py-2 text-[11px] font-bold text-brand border-brand/40 hover:bg-brand/10 transition whitespace-nowrap">
+            ◉ AT ME
           </button>
           <button onClick={() => setAddMode(addMode === "camera" ? null : "camera")}
-            className={`glass rounded-full px-4 py-2.5 text-xs font-bold transition whitespace-nowrap ${addMode === "camera" ? "text-accent border-accent/50" : "text-slate-300"}`}>
-            ＋ ON MAP
+            className={`glass rounded-full px-3 py-2 text-[11px] font-bold transition whitespace-nowrap ${addMode === "camera" ? "text-accent border-accent/50" : "text-slate-300"}`}>
+            ＋ MAP
           </button>
           <button onClick={() => setAddMode(addMode === "infra" ? null : "infra")}
-            className={`glass rounded-full px-4 py-2.5 text-xs font-bold transition whitespace-nowrap ${addMode === "infra" ? "text-accent border-accent/50" : "text-slate-300"}`}>
+            className={`glass rounded-full px-3 py-2 text-[11px] font-bold transition whitespace-nowrap ${addMode === "infra" ? "text-accent border-accent/50" : "text-slate-300"}`}>
             ⌂ INFRA
           </button>
-          <button onClick={() => setPanel(panel === "list" ? "detail" : "list")}
-            className="glass rounded-full px-4 py-2.5 text-xs font-bold text-slate-300 sm:hidden whitespace-nowrap">☰</button>
+          <button onClick={() => setPanel(panel === "closed" ? "list" : "closed")}
+            className="glass rounded-full px-3 py-2 text-[11px] font-bold text-slate-300 sm:hidden whitespace-nowrap">☰</button>
         </div>
 
         {/* side / bottom panel */}
         <aside className={`absolute z-10 glass overflow-y-auto
-          sm:top-3 sm:right-3 sm:bottom-3 sm:w-80 sm:rounded-xl
-          inset-x-0 bottom-0 max-h-[55vh] rounded-t-2xl transition-transform
-          ${panel === "detail" || panel === "list" || panel === "share" ? "" : "translate-y-full sm:translate-y-0"}`}>
+          sm:top-3 sm:right-3 sm:bottom-3 sm:w-80 sm:rounded-xl sm:translate-y-0
+          inset-x-0 bottom-14 max-h-[50dvh] rounded-t-2xl transition-transform duration-200
+          ${panel === "closed" ? "max-sm:translate-y-[110%]" : ""}`}>
           <div className="p-4">
             {panel === "share" ? (
               <SharePanel siteId={site.id} shares={site.shares} onChanged={refresh} />

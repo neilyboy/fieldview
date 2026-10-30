@@ -38,7 +38,7 @@ export default function ShareView() {
   const center: [number, number] = [site.centerLng ?? site.cameras[0]?.lng ?? -98.5, site.centerLat ?? site.cameras[0]?.lat ?? 39.8];
 
   return (
-    <div className="h-screen flex flex-col" style={{ ["--brand" as string]: branding?.primaryColor, ["--accent" as string]: branding?.accentColor }}>
+    <div className="h-[100dvh] flex flex-col" style={{ ["--brand" as string]: branding?.primaryColor, ["--accent" as string]: branding?.accentColor }}>
       <header className="glass border-b border-edge px-4 py-2.5 flex items-center gap-3 z-20">
         {branding?.logoPath && <img src={`/api/uploads/${branding.logoPath}`} alt="" className="h-7 w-auto object-contain" />}
         <div className="min-w-0">
@@ -55,7 +55,7 @@ export default function ShareView() {
           onSelect={(kind, id) => setSel(kind === "camera" ? site.cameras.find((c) => c.id === id) ?? null : null)} />
 
         {sel && (
-          <aside className="absolute z-10 glass overflow-y-auto sm:top-3 sm:right-3 sm:bottom-3 sm:w-96 sm:rounded-xl inset-x-0 bottom-0 max-h-[60vh] rounded-t-2xl">
+          <aside className="absolute z-10 glass overflow-y-auto sm:top-3 sm:right-3 sm:bottom-3 sm:w-96 sm:rounded-xl inset-x-0 bottom-0 max-h-[65dvh] rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
             <div className="p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div>

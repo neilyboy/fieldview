@@ -4,7 +4,8 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { conesForCamera, destination } from "@/lib/geo";
-import MapError from "./MapError";
+import dynamic from "next/dynamic";
+const LeafletMap = dynamic(() => import("./LeafletMap"), { ssr: false });
 
 export type Cam = {
   id: string; name: string; lat: number; lng: number; bearingDeg: number;
@@ -259,13 +260,22 @@ export default function SiteMap(props: {
 
   return (
     <div className="relative w-full h-full">
-      <div ref={ref} className="absolute inset-0" />
-      {glError && <MapError error={glError} />}
-      <button
-        onClick={toggleBasemap}
-        className="absolute top-3 left-3 z-10 glass rounded-lg px-3 py-1.5 text-xs font-mono text-slate-300 hover:text-brand transition"
-        title="Toggle basemap"
-      >AERIAL / STREETS</button>
+      {!glError && <div ref={ref} className="absolute inset-0" />}
+      {glError && (
+        <>
+          <LeafletMap {...propsRef.current} />
+          <div className="absolute bottom-3 left-3 z-10 glass rounded-lg px-3 py-1.5 text-[10px] font-mono text-accent max-w-[70%]" title={glError}>
+            2D FALLBACK MODE — WebGL unavailable, enable graphics acceleration for full map
+          </div>
+        </>
+      )}
+      {!glError && (
+        <button
+          onClick={toggleBasemap}
+          className="absolute top-3 left-3 z-10 glass rounded-lg px-3 py-1.5 text-xs font-mono text-slate-300 hover:text-brand transition"
+          title="Toggle basemap"
+        >AERIAL / STREETS</button>
+      )}
       {props.addMode && (
         <div className="absolute top-14 left-3 z-10 glass rounded-lg px-3 py-1.5 text-xs text-accent font-mono">
           TAP MAP TO PLACE {props.addMode === "camera" ? "CAMERA" : "INFRA"}
